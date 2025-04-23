@@ -6,6 +6,7 @@
 #include <iostream>
 #include <chrono>
 #include <cmath>
+#include <omp.h>
 using namespace std;
 
 // gen_numbers
@@ -43,6 +44,18 @@ int count_prime_serial(long int numbers[], long int how_many)
 	}
 	return count;
 }
+int count_prime_parallel(long int numbers[], long int how_many)
+{
+	int count = 0;
+	omp_set_num_threads(4);
+	#pragma omp parallel for reduction(+:count)
+	for (int i = 0; i < how_many; i++)
+	{
+		if (is_prime(numbers[i]))
+			count++;
+	}
+	return count;
+}
 
 // This is the entrypoint into the program
 int main() {
@@ -52,18 +65,40 @@ int main() {
 	cout << "Generating numbers..." << endl;
 	// Generate numbers first
 	gen_numbers(numbers, n);
-
-	cout << "Counting primes..." << endl;
-	// Count primes, use chrono to time the function
-	auto start = chrono::steady_clock::now();
-	int count = count_prime_serial(numbers, n);
-	auto end = chrono::steady_clock::now();
-
-	// Print results
-	double compute_time = chrono::duration<double>(end - start).count();
-	cout << "Total number of primes = " << count << endl;
-	cout << "Total computation time = " << compute_time << endl;
-
+	const int runs = 10;
+	double total_time_serial = 0;
+	double total_time_parallel = 0;
+	int serial_result = 0;
+	int parallel_result = 0;
+	cout << "\n========== SERIAL RUNS ==========\n";
+	for (int i = 0; i < runs; i++) {
+		auto start = chrono::steady_clock::now();
+		serial_result = count_prime_serial(numbers, n);
+		auto end = chrono::steady_clock::now();
+		double time = chrono::duration<double>(end - start).count();
+		cout << "Serial Run " << i + 1 << ": " << time << " seconds\n";
+		total_time_serial += time;
+	}
+	cout << "\n========== PARALLEL RUNS ==========\n";
+	for (int i = 0; i < runs; i++) {
+		auto start = chrono::steady_clock::now();
+		parallel_result = count_prime_parallel(numbers, n);
+		auto end = chrono::steady_clock::now();
+		double time = chrono::duration<double>(end - start).count();
+		cout << "Parallel Run " << i + 1 << ": " << time << " seconds\n";
+		total_time_parallel += time;
+	}
+	double avg_serial = total_time_serial / runs;
+	double avg_parallel = total_time_parallel / runs;
+	double speedup = avg_serial / avg_parallel;
+	// Print final comparison
+	cout << "\n========== FINAL RESULTS ==========\n";
+	cout << "Total primes (serial): " << serial_result << "\n";
+	cout << "Total primes (parallel): " << parallel_result << "\n";
+	cout << "Average time (serial): " << avg_serial << " seconds\n";
+	cout << "Average time (parallel): " << avg_parallel << " seconds\n";
+	cout << "Speedup (serial / parallel): " << speedup << "x\n";
+	delete[] numbers;
     return 0;
 }
 
